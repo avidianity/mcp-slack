@@ -1,6 +1,6 @@
 {
   "name": "@avidian/mcp-slack",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TOON-first Model Context Protocol server for Slack, with dual-token auth and both stdio and Streamable HTTP transports.",
   "type": "module",
   "license": "MIT",

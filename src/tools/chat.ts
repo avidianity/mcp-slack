@@ -1,15 +1,18 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { KnownBlock } from '@slack/web-api';
 import { registerTool, cursorOption, limitOption } from '@/tools/registry.ts';
 import type { ToolDeps } from '@/tools/registry.ts';
 import { resolveLimit, shapeMessage } from '@/format/index.ts';
 
 const channel = z.string().describe('Channel ID (e.g. C0123456789) or name.');
 const blocks = z
-  .array(z.unknown())
+  .array(z.looseObject({ type: z.string() }))
   .optional()
-  .describe('Optional Slack Block Kit blocks (array of block objects).');
+  .describe(
+    'Optional Slack Block Kit blocks: an array of block objects, each with a string `type` ' +
+      '(e.g. "section", "divider", "actions"). Other fields are passed through to Slack, which ' +
+      'validates them authoritatively.',
+  );
 
 const SCHEDULED_MAX = 100;
 
@@ -53,7 +56,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
           channel: args.channel,
           text: args.text,
           ...(args.thread_ts !== undefined ? { thread_ts: args.thread_ts } : {}),
-          ...(args.blocks !== undefined ? { blocks: args.blocks as KnownBlock[] } : {}),
+          ...(args.blocks !== undefined ? { blocks: args.blocks } : {}),
         }),
       );
       return { ok: res.ok ?? true, channel: res.channel, ts: res.ts };
@@ -76,7 +79,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
           channel: args.channel,
           thread_ts: args.thread_ts,
           text: args.text,
-          ...(args.blocks !== undefined ? { blocks: args.blocks as KnownBlock[] } : {}),
+          ...(args.blocks !== undefined ? { blocks: args.blocks } : {}),
         }),
       );
       return { ok: res.ok ?? true, channel: res.channel, ts: res.ts };
@@ -101,7 +104,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
           channel: args.channel,
           ts: args.ts,
           text: args.text,
-          ...(args.blocks !== undefined ? { blocks: args.blocks as KnownBlock[] } : {}),
+          ...(args.blocks !== undefined ? { blocks: args.blocks } : {}),
         }),
       );
       return { ok: res.ok ?? true, channel: res.channel, ts: res.ts };

@@ -1,5 +1,7 @@
 # @avidian/mcp-slack
 
+[![Release](https://github.com/avidianity/mcp-slack/actions/workflows/release.yml/badge.svg)](https://github.com/avidianity/mcp-slack/actions/workflows/release.yml)
+
 A modern [Model Context Protocol](https://modelcontextprotocol.io) server for Slack, built on
 Bun + TypeScript. It exposes Slack's Web API to any MCP-compatible AI agent and returns
 results in [TOON](https://github.com/toon-format/toon) by default for large token savings —

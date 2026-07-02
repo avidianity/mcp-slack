@@ -26,6 +26,8 @@ prefers JSON.
 - **Dual-token auth** — bot token (`xoxb-`) and/or user token (`xoxp-`), routed per tool.
 - **Edit & delete your own messages** — `chat.update` / `chat.delete` via user token.
 - **Message search** — `search.messages` (user token).
+- **Channel & user search** — fuzzy `slack_search_channels` / `slack_search_users` that
+  paginate server-side, so the agent finds a match in one call instead of walking every page.
 - **TOON-first output** with per-call `format: "toon" | "json"`.
 - **Agent-controlled paging** — `limit` is set per call; TOON gets a higher default.
 - **Two transports** — stdio (default) and Streamable HTTP with Bearer auth.
@@ -84,8 +86,8 @@ Transport options are passed as CLI flags: `--transport stdio\|http`, `--port <n
 
 When `SLACK_CHANNEL_IDS` is set it is a real access boundary, not just a list filter:
 every channel-scoped tool call must target a channel ID in the list, or it is rejected
-before reaching Slack. `slack_list_channels`, `slack_search_messages`, and
-`slack_list_scheduled_messages` return only allowlisted channels. The allowlist matches on
+before reaching Slack. `slack_list_channels`, `slack_search_channels`, `slack_search_messages`,
+and `slack_list_scheduled_messages` return only allowlisted channels. The allowlist matches on
 channel **IDs**, so pass IDs (not names) to channel-scoped tools when it is set.
 
 `SLACK_TEAM_ID` is optional and only relevant for org-level (Enterprise Grid) tokens, where
@@ -98,6 +100,13 @@ when bound to a concrete host (loopback or a specific address). For a wildcard b
 (`--host 0.0.0.0`) no canonical host can be derived, so set `SLACK_MCP_ALLOWED_HOSTS` to the
 public `host:port` value(s) to keep protection on — otherwise it is disabled with a warning
 and only Bearer auth applies. Set `SLACK_MCP_ALLOWED_ORIGINS` for browser-based clients.
+
+At most 128 concurrent sessions are kept; further `initialize` requests get a 503 until a
+session is closed (`DELETE /mcp`), so an unclosed-session loop cannot exhaust memory.
+
+Treat the Bearer token as granting more than Slack access: `slack_upload_file` accepts a
+local `file_path`, so a token holder can have the server read any file the process can read
+and upload it to Slack.
 
 ## Usage
 
@@ -134,6 +143,31 @@ Then point your MCP client at `http://localhost:3000/mcp` with header
 Every tool accepts an optional `format` (`"toon"` | `"json"`). Paginated tools accept an
 optional `limit` (agent-controlled; clamped only to Slack's per-method maximum).
 
+**Finding things without pagination hell:**
+
+- `slack_search_channels` / `slack_search_users` — fuzzy search (powered by
+  [fuse.js](https://www.fusejs.io/)) that pages through the workspace server-side and returns
+  ranked matches in one call. No need to walk `slack_list_channels` / `slack_get_users`.
+- `slack_get_channel_history` accepts an optional `user` (user ID). When set, the server pages
+  history internally and returns only that sender's messages, so you don't fetch a page and
+  filter it yourself. Combine with `oldest` / `latest` for a time range.
+- `slack_search_messages` accepts optional `channel` and `user`, folded into `in:` / `from:`
+  search operators for you. Pass an ID (`C…` / `U…`) or a single-word name/handle — Slack's
+  operators have no syntax for multi-word values, so values with spaces are rejected; resolve a
+  display name to an ID with `slack_search_users` first. **Requires the user token's
+  `search:read` scope** — a `missing_scope` error means you need to add it in the Slack app
+  config and reinstall.
+- Fuzzy `query` values (`slack_search_channels` / `slack_search_users`) must be at least 2
+  characters.
+
+Sensible defaults keep results focused:
+
+- `slack_list_channels` / `slack_search_channels` return only channels the token identity has
+  joined. Pass `include_non_member: true` to include channels it has not joined. (A configured
+  `SLACK_CHANNEL_IDS` allowlist is returned as-is — it is already an explicit set.)
+- `slack_get_users` / `slack_search_users` exclude deactivated (deleted) users. Pass
+  `include_deleted: true` to include them.
+
 **Messaging (`chat.*`)**
 
 | Tool                             | Slack method                     | Token      |
@@ -150,15 +184,16 @@ optional `limit` (agent-controlled; clamped only to Slack's per-method maximum).
 
 **Conversations**
 
-| Tool                        | Slack method            |
-| --------------------------- | ----------------------- |
-| `slack_list_channels`       | `conversations.list`    |
-| `slack_get_channel_history` | `conversations.history` |
-| `slack_get_thread_replies`  | `conversations.replies` |
-| `slack_get_channel_info`    | `conversations.info`    |
-| `slack_get_channel_members` | `conversations.members` |
-| `slack_join_channel`        | `conversations.join`    |
-| `slack_mark_read`           | `conversations.mark`    |
+| Tool                        | Slack method                                     |
+| --------------------------- | ------------------------------------------------ |
+| `slack_list_channels`       | `conversations.list`                             |
+| `slack_search_channels`     | `conversations.list` (server-side paged + fuzzy) |
+| `slack_get_channel_history` | `conversations.history` (optional `user` filter) |
+| `slack_get_thread_replies`  | `conversations.replies`                          |
+| `slack_get_channel_info`    | `conversations.info`                             |
+| `slack_get_channel_members` | `conversations.members`                          |
+| `slack_join_channel`        | `conversations.join`                             |
+| `slack_mark_read`           | `conversations.mark`                             |
 
 **Reactions / Pins / Bookmarks**
 
@@ -170,12 +205,13 @@ optional `limit` (agent-controlled; clamped only to Slack's per-method maximum).
 
 **Users / Search / Files**
 
-| Tool                     | Slack method                       | Token    |
-| ------------------------ | ---------------------------------- | -------- |
-| `slack_get_users`        | `users.list`                       | bot      |
-| `slack_get_user_profile` | `users.info` / `users.profile.get` | bot      |
-| `slack_search_messages`  | `search.messages`                  | **user** |
-| `slack_upload_file`      | `filesUploadV2`                    | bot      |
+| Tool                     | Slack method                                   | Token    |
+| ------------------------ | ---------------------------------------------- | -------- |
+| `slack_get_users`        | `users.list`                                   | bot      |
+| `slack_search_users`     | `users.list` (server-side paged + fuzzy)       | bot      |
+| `slack_get_user_profile` | `users.info` / `users.profile.get`             | bot      |
+| `slack_search_messages`  | `search.messages` (`channel` / `user` scoping) | **user** |
+| `slack_upload_file`      | `filesUploadV2`                                | bot      |
 
 ## Development
 

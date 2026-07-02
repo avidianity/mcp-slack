@@ -56,6 +56,47 @@ function cannedFor(method: string, args: Record<string, unknown>): unknown {
       },
     };
   }
+  // conversations.list / users.list back the directory-search tools. Single
+  // page (no next_cursor) so the internal paginator terminates.
+  if (method === 'conversations.list') {
+    return {
+      ok: true,
+      channels: [
+        { id: 'C1', name: 'general', is_member: true },
+        { id: 'C2', name: 'random', is_member: false },
+      ],
+    };
+  }
+  if (method === 'conversations.history') {
+    // Two U1 messages share a single page (no next_cursor) so the user-filter
+    // path can be exercised for both correctness and no-slice behavior.
+    return {
+      ok: true,
+      messages: [
+        { ts: '12.0', text: 'later', user: 'U1' },
+        { ts: '11.0', text: 'hi', user: 'U2' },
+        { ts: '10.0', text: 'morning', user: 'U1' },
+      ],
+    };
+  }
+  if (method === 'users.list') {
+    return {
+      ok: true,
+      members: [
+        {
+          id: 'U1',
+          name: 'ace',
+          profile: { real_name: 'Ada Lovelace', display_name: 'ada', email: 'ada@x.io' },
+        },
+        {
+          id: 'U2',
+          name: 'bob',
+          deleted: true,
+          profile: { real_name: 'Bob Stone', display_name: 'bobby', email: 'bob@x.io' },
+        },
+      ],
+    };
+  }
   if (method === 'chat.scheduledMessages.list') {
     return {
       ok: true,
@@ -217,6 +258,168 @@ describe('tool behavior', () => {
     const parsed = JSON.parse(textOf(result)) as { scheduled_messages: { id: string }[] };
     expect(parsed.scheduled_messages.map((m) => m.id)).toEqual(['Q1']);
     await scoped.client.close();
+  });
+
+  test('search_channels fuzzy-matches and ranks channels', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_search_channels',
+      arguments: { query: 'general', include_non_member: true, format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as {
+      channels: { name: string }[];
+      truncated: boolean;
+      scanned: number;
+    };
+    expect(parsed.channels.map((c) => c.name)).toEqual(['general']);
+    expect(parsed.truncated).toBe(false);
+    expect(parsed.scanned).toBe(2);
+  });
+
+  test('search_channels excludes non-member channels by default', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_search_channels',
+      arguments: { query: 'random', format: 'json' }, // "random" (C2) is a non-member channel
+    });
+    const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
+    expect(parsed.channels).toEqual([]);
+  });
+
+  test('search_channels searches within the allowlist only', async () => {
+    const scoped = await connect(
+      loadConfig({ SLACK_BOT_TOKEN: 'xoxb-1', SLACK_TEAM_ID: 'T1', SLACK_CHANNEL_IDS: 'C1' }),
+    );
+    const result = await scoped.client.callTool({
+      name: 'slack_search_channels',
+      arguments: { query: 'general', format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
+    expect(parsed.channels.map((c) => c.id)).toEqual(['C1']);
+    // Resolved via conversations.info, never the workspace-wide list.
+    expect(scoped.calls.every((c) => c.method === 'conversations.info')).toBe(true);
+    await scoped.client.close();
+  });
+
+  test('list_channels returns only member channels by default', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_list_channels',
+      arguments: { format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
+    expect(parsed.channels.map((c) => c.id)).toEqual(['C1']);
+  });
+
+  test('list_channels includes non-member channels when asked', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_list_channels',
+      arguments: { include_non_member: true, format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
+    expect(parsed.channels.map((c) => c.id)).toEqual(['C1', 'C2']);
+  });
+
+  test('get_users hides deactivated users by default', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_get_users',
+      arguments: { format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { users: { id: string }[] };
+    expect(parsed.users.map((u) => u.id)).toEqual(['U1']);
+  });
+
+  test('get_users includes deactivated users when asked', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_get_users',
+      arguments: { include_deleted: true, format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { users: { id: string }[] };
+    expect(parsed.users.map((u) => u.id)).toEqual(['U1', 'U2']);
+  });
+
+  test('get_channel_history filters to a single sender when user is set', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_get_channel_history',
+      arguments: { channel: 'C1', user: 'U1', format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { messages: { user: string }[] };
+    expect(parsed.messages.map((m) => m.user)).toEqual(['U1', 'U1']);
+  });
+
+  test('get_channel_history returns all same-page matches even beyond limit', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_get_channel_history',
+      arguments: { channel: 'C1', user: 'U1', limit: 1, format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as {
+      messages: { user: string }[];
+      nextCursor?: string;
+    };
+    // Slicing to limit=1 would strand the second U1 message on the same page,
+    // while nextCursor points to the next page — so both are returned and the
+    // single (exhausted) page exposes no cursor.
+    expect(parsed.messages.map((m) => m.user)).toEqual(['U1', 'U1']);
+    expect(parsed.nextCursor).toBeUndefined();
+  });
+
+  test('search_messages folds channel and user into in:/from: operators', async () => {
+    await ctx.client.callTool({
+      name: 'slack_search_messages',
+      arguments: { query: 'checkout', channel: 'C0123456789', user: 'U04KPEGV0RW', format: 'json' },
+    });
+    const call = ctx.calls.at(-1);
+    expect(call?.method).toBe('search.messages');
+    const query = String(call?.args['query']);
+    expect(query).toContain('checkout');
+    expect(query).toContain('in:<#C0123456789>');
+    expect(query).toContain('from:<@U04KPEGV0RW>');
+  });
+
+  test('search_messages treats non-ID channel/user as names', async () => {
+    await ctx.client.callTool({
+      name: 'slack_search_messages',
+      arguments: { query: 'x', channel: 'ge-daily-dev', user: 'me', format: 'json' },
+    });
+    const query = String(ctx.calls.at(-1)?.args['query']);
+    expect(query).toContain('in:#ge-daily-dev');
+    expect(query).toContain('from:@me');
+  });
+
+  test('search_messages rejects a channel/user value containing spaces', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_search_messages',
+      arguments: { query: 'x', user: 'John Michael', format: 'json' },
+    });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/space/i);
+    // Rejected at validation; the call never reached Slack.
+    expect(ctx.calls.some((c) => c.method === 'search.messages')).toBe(false);
+  });
+
+  test('search_channels rejects a one-character query', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_search_channels',
+      arguments: { query: 'a', format: 'json' },
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  test('search_users fuzzy-matches and hides deactivated users by default', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_search_users',
+      arguments: { query: 'lovelace', format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { users: { id: string }[]; scanned: number };
+    expect(parsed.users.map((u) => u.id)).toEqual(['U1']);
+    // Deactivated Bob is excluded from the scanned set.
+    expect(parsed.scanned).toBe(1);
+  });
+
+  test('search_users can include deactivated users', async () => {
+    const result = await ctx.client.callTool({
+      name: 'slack_search_users',
+      arguments: { query: 'stone', include_deleted: true, format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { users: { id: string }[] };
+    expect(parsed.users.map((u) => u.id)).toEqual(['U2']);
   });
 
   test('upload_file rejects when both content and file_path are given', async () => {

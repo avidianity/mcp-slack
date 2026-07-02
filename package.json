@@ -1,6 +1,6 @@
 {
   "name": "@avidian/mcp-slack",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "TOON-first Model Context Protocol server for Slack, with dual-token auth and both stdio and Streamable HTTP transports.",
   "type": "module",
   "license": "MIT",
@@ -44,7 +44,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "bun run typecheck && bun run lint && bun run format:check",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun test",
     "test": "bun test"
   },
   "dependencies": {
@@ -52,6 +52,7 @@
     "@slack/web-api": "^7.18.0",
     "@toon-format/toon": "^2.3.0",
     "commander": "^15.0.0",
+    "fuse.js": "^7.4.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

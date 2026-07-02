@@ -5,14 +5,14 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-  id-token: write
+permissions: {}
 
 jobs:
   check:
     name: Lint & Typecheck
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -26,6 +26,8 @@ jobs:
     name: Compile Binaries
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:
@@ -54,6 +56,8 @@ jobs:
     name: Create Release
     needs: compile
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -89,6 +93,9 @@ jobs:
     name: Publish to npm
     needs: check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 

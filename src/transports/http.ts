@@ -1,6 +1,6 @@
 import { createServer as createHttpServer } from 'node:http';
 import type { IncomingMessage, Server as HttpServer, ServerResponse } from 'node:http';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -13,12 +13,21 @@ export interface HttpOptions {
   readonly allowedHosts?: readonly string[];
   /** `Origin` header values to accept (for browser clients); unset skips the check. */
   readonly allowedOrigins?: readonly string[];
+  /** Maximum concurrent sessions (default {@link MAX_SESSIONS}). */
+  readonly maxSessions?: number;
 }
 
 const SESSION_HEADER = 'mcp-session-id';
 
 /** Maximum accepted JSON request body (4 MiB) — guards against memory blowups. */
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Maximum concurrent sessions. Each session holds a live server + transport
+ * until the client DELETEs it, so an uncapped map is a slow memory leak (or a
+ * deliberate exhaustion vector for anyone holding the bearer token).
+ */
+const MAX_SESSIONS = 128;
 
 /** Loopback hosts always trusted for DNS-rebinding protection. */
 const LOOPBACK_HOSTS = ['127.0.0.1', 'localhost', '::1'];
@@ -95,9 +104,11 @@ function isAuthorized(req: IncomingMessage, expected: string): boolean {
   if (!header?.startsWith('Bearer ')) {
     return false;
   }
-  const provided = Buffer.from(header.slice('Bearer '.length));
-  const expectedBuf = Buffer.from(expected);
-  return provided.length === expectedBuf.length && timingSafeEqual(provided, expectedBuf);
+  // Hash both sides before comparing: the digests always have equal length, so
+  // the comparison is fully constant-time and leaks neither content nor length.
+  const provided = createHash('sha256').update(header.slice('Bearer '.length)).digest();
+  const expectedDigest = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(provided, expectedDigest);
 }
 
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
@@ -186,6 +197,13 @@ export async function startHttp(
         return;
       }
 
+      if (transports.size >= (options.maxSessions ?? MAX_SESSIONS)) {
+        sendJson(res, 503, {
+          error: 'Too many active sessions; close existing sessions (DELETE /mcp) and retry.',
+        });
+        return;
+      }
+
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessionclosed: (id) => {
@@ -219,6 +237,10 @@ export async function startHttp(
     handle(req, res).catch(() => {
       if (!res.headersSent) {
         sendJson(res, 500, { error: 'Internal server error' });
+      } else {
+        // Mid-stream failure: the response state is unknowable, so tear the
+        // socket down rather than leave a half-written keep-alive connection.
+        res.destroy();
       }
     });
   });

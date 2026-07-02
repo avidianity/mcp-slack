@@ -101,6 +101,20 @@ describe('http transport', () => {
     await res.body?.cancel();
   });
 
+  test('POST /mcp with a token that merely prefixes the real one is unauthorized', async () => {
+    const res = await fetch(`${BASE}/mcp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        Authorization: `Bearer ${AUTH_TOKEN}x`,
+      },
+      body: initializeBody(),
+    });
+    expect(res.status).toBe(401);
+    await res.body?.cancel();
+  });
+
   test('POST /mcp with a bad JSON body returns 400', async () => {
     const res = await fetch(`${BASE}/mcp`, {
       method: 'POST',
@@ -141,5 +155,67 @@ describe('http transport', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('mcp-session-id')).toBeTruthy();
     await res.body?.cancel();
+  });
+});
+
+describe('http transport session cap', () => {
+  const CAP_PORT = PORT + 1;
+  const CAP_BASE = `http://${HOST}:${CAP_PORT.toString()}`;
+  let server: Server;
+
+  beforeAll(async () => {
+    server = await startHttp(() => createServer(config), {
+      host: HOST,
+      port: CAP_PORT,
+      authToken: AUTH_TOKEN,
+      maxSessions: 1,
+    });
+  });
+
+  afterAll(async () => {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
+  });
+
+  function initialize(): Promise<Response> {
+    return fetch(`${CAP_BASE}/mcp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        Authorization: `Bearer ${AUTH_TOKEN}`,
+      },
+      body: initializeBody(),
+    });
+  }
+
+  test('rejects new sessions beyond the cap and frees a slot on DELETE', async () => {
+    const first = await initialize();
+    expect(first.status).toBe(200);
+    const sessionId = first.headers.get('mcp-session-id');
+    expect(sessionId).toBeTruthy();
+    await first.body?.cancel();
+
+    const second = await initialize();
+    expect(second.status).toBe(503);
+    await second.body?.cancel();
+
+    const closed = await fetch(`${CAP_BASE}/mcp`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${AUTH_TOKEN}`,
+        'mcp-session-id': sessionId ?? '',
+      },
+    });
+    expect(closed.status).toBeLessThan(300);
+    await closed.body?.cancel();
+
+    const third = await initialize();
+    expect(third.status).toBe(200);
+    await third.body?.cancel();
   });
 });

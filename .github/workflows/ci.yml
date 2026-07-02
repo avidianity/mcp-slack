@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Lint & Typecheck
@@ -26,3 +29,5 @@ jobs:
       - run: bun run lint
 
       - run: bun run format:check
+
+      - run: bun test

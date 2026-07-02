@@ -9,3 +9,6 @@ coverage
 
 # Local artifacts
 *.tgz
+
+# Local tooling state
+.serena/

@@ -13,7 +13,7 @@ export interface HttpOptions {
   readonly allowedHosts?: readonly string[];
   /** `Origin` header values to accept (for browser clients); unset skips the check. */
   readonly allowedOrigins?: readonly string[];
-  /** Maximum concurrent sessions (default {@link MAX_SESSIONS}). */
+  /** Maximum concurrent sessions (default 128). */
   readonly maxSessions?: number;
 }
 

@@ -138,6 +138,29 @@ SLACK_BOT_TOKEN=xoxb-… SLACK_TEAM_ID=T… AUTH_TOKEN=secret \
 Then point your MCP client at `http://localhost:3000/mcp` with header
 `Authorization: Bearer secret`.
 
+### Programmatic (embed in your own app)
+
+The package also works as an ESM library (with bundled TypeScript types; Bun
+gets its own build via the `bun` export condition):
+
+```ts
+import { loadConfig, createServer, startHttp, startStdio } from '@avidian/mcp-slack';
+
+const config = loadConfig({ SLACK_BOT_TOKEN: 'xoxb-…' }); // or loadConfig() for process.env
+const server = createServer(config);
+
+await startStdio(server); // or:
+await startHttp(() => createServer(config), {
+  host: '127.0.0.1',
+  port: 3000,
+  authToken: 'secret',
+});
+```
+
+`SlackClient`, `SlackApiError`, `SlackAuthError`, and the `Config` /
+`HttpOptions` types are exported too. Importing the library has no side
+effects — only the CLI entry parses argv and starts a transport.
+
 ## Tools
 
 Every tool accepts an optional `format` (`"toon"` | `"json"`). Paginated tools accept an

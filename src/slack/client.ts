@@ -1,6 +1,17 @@
-import { WebClient, retryPolicies, ErrorCode } from '@slack/web-api';
-import type { WebAPICallResult } from '@slack/web-api';
+import webApiDefault from '@slack/web-api';
+import * as webApiNamespace from '@slack/web-api';
+import type { WebAPICallResult, WebClient } from '@slack/web-api';
 import type { Config } from '@/config.ts';
+
+// Destructure through the default export, falling back to the namespace:
+// @slack/web-api is CommonJS, so named ESM imports of its getter-based
+// re-exports (e.g. `retryPolicies`) break on Node 20's export detection,
+// while CJS-bundled interop honors `__esModule` and leaves the default unset.
+const {
+  WebClient: SlackWebClient,
+  retryPolicies,
+  ErrorCode,
+} = (webApiDefault as typeof webApiDefault | undefined) ?? webApiNamespace;
 
 /**
  * Token-selection policy for a tool.
@@ -55,9 +66,10 @@ export class SlackClient {
     const options = {
       retryConfig: retryPolicies.fiveRetriesInFiveMinutes,
     };
-    this.bot = config.botToken !== undefined ? new WebClient(config.botToken, options) : undefined;
+    this.bot =
+      config.botToken !== undefined ? new SlackWebClient(config.botToken, options) : undefined;
     this.user =
-      config.userToken !== undefined ? new WebClient(config.userToken, options) : undefined;
+      config.userToken !== undefined ? new SlackWebClient(config.userToken, options) : undefined;
     this.teamId = config.teamId;
     this.channelIds = config.channelIds;
   }

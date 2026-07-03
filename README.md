@@ -218,6 +218,9 @@ Sensible defaults keep results focused:
 | `join_channel`        | `conversations.join`                             |
 | `mark_read`           | `conversations.mark`                             |
 
+History and thread messages carry a compact `files` column (`id:mimetype` per
+attachment); pass an id to `get_file` to fetch the bytes.
+
 **Reactions / Pins / Bookmarks**
 
 | Tool                                                  | Slack method                  |
@@ -235,6 +238,7 @@ Sensible defaults keep results focused:
 | `get_user_profile` | `users.info` / `users.profile.get`             | bot      |
 | `search_messages`  | `search.messages` (`channel` / `user` scoping) | **user** |
 | `upload_file`      | `filesUploadV2`                                | bot      |
+| `get_file`         | `files.info` + authenticated download          | bot      |
 
 ## Development
 

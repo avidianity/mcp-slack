@@ -48,6 +48,31 @@ interface ToolDefinition<Shape extends z.ZodRawShape> {
   readonly handler: (args: InferShape<Shape>, ctx: ToolContext) => Promise<unknown>;
 }
 
+/**
+ * Sentinel wrapper letting a handler emit raw MCP content (e.g. an `image`
+ * block) instead of a value that gets encoded to TOON/JSON text. Handlers that
+ * return a plain object take the normal formatting path; those that need to
+ * return bytes the model can view wrap their content with `rawToolResult`.
+ */
+const RAW_RESULT = Symbol('mcpRawToolResult');
+
+export interface RawToolResult {
+  readonly [RAW_RESULT]: true;
+  readonly content: CallToolResult['content'];
+}
+
+export function rawToolResult(content: CallToolResult['content']): RawToolResult {
+  return { [RAW_RESULT]: true, content };
+}
+
+function isRawToolResult(value: unknown): value is RawToolResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as Record<PropertyKey, unknown>)[RAW_RESULT] === true
+  );
+}
+
 /** Convert any thrown value into a clean, agent-readable message. */
 export function toErrorMessage(error: unknown): string {
   if (error instanceof SlackAuthError || error instanceof SlackApiError) {
@@ -107,6 +132,9 @@ export function registerTool<Shape extends z.ZodRawShape>(
           deps.slack.assertChannelAllowed(channelArg);
         }
         const data = await def.handler(args as InferShape<Shape>, ctx);
+        if (isRawToolResult(data)) {
+          return { content: data.content };
+        }
         return { content: [{ type: 'text', text: formatResponse(data, format) }] };
       } catch (error) {
         return { isError: true, content: [{ type: 'text', text: toErrorMessage(error) }] };

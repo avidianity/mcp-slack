@@ -123,6 +123,37 @@ export class SlackClient {
   }
 
   /**
+   * Download an authenticated Slack file URL (e.g. `url_private`) as bytes.
+   *
+   * Slack's private file URLs are not public — they require the token as a
+   * Bearer credential — so this reuses the policy-selected client's token
+   * instead of going through the Web API surface (which does not stream files).
+   */
+  async fetchFileBytes(
+    policy: TokenPolicy,
+    url: string,
+  ): Promise<{ bytes: Uint8Array; contentType: string | undefined }> {
+    const client = this.clientFor(policy);
+    const token = (client as { token?: string }).token;
+    if (token === undefined || token === '') {
+      throw new SlackAuthError('No token available to download the file.');
+    }
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (error) {
+      throw new SlackApiError(
+        `Failed to download file: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (!res.ok) {
+      throw new SlackApiError(`Failed to download file (HTTP ${res.status} ${res.statusText}).`);
+    }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return { bytes, contentType: res.headers.get('content-type') ?? undefined };
+  }
+
+  /**
    * Invoke a Slack API call with a policy-selected client, normalizing any
    * error into a `SlackApiError` / `SlackAuthError`.
    */

@@ -12,7 +12,7 @@ const CANNED = {
   channel: 'C1',
   ts: '111.222',
   message: { text: 'hello', ts: '111.222' },
-  messages: [{ ts: '1.0', text: 'hi', user: 'U1' }],
+  messages: [{ ts: '1.0', text: 'hi', user: 'U1', files: [{ id: 'F1', mimetype: 'image/png' }] }],
   channels: [
     { id: 'C1', name: 'general' },
     { id: 'C9', name: 'secret' },
@@ -95,6 +95,19 @@ function cannedFor(method: string, args: Record<string, unknown>): unknown {
           profile: { real_name: 'Bob Stone', display_name: 'bobby', email: 'bob@x.io' },
         },
       ],
+    };
+  }
+  if (method === 'files.info') {
+    return {
+      ok: true,
+      file: {
+        id: args['file'],
+        name: 'shot.png',
+        mimetype: 'image/png',
+        size: 3,
+        url_private: 'https://slack/files/shot.png',
+        url_private_download: 'https://slack/files/shot.png?dl=1',
+      },
     };
   }
   if (method === 'chat.scheduledMessages.list') {
@@ -430,6 +443,51 @@ describe('tool behavior', () => {
     expect(result.isError).toBe(true);
     expect(textOf(result)).toMatch(/only one/i);
     expect(ctx.calls.some((c) => c.method.startsWith('files'))).toBe(false);
+  });
+
+  test('get_thread_replies surfaces attached files as id:mimetype', async () => {
+    const result = await ctx.client.callTool({
+      name: 'get_thread_replies',
+      arguments: { channel: 'C1', ts: '1.0', format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { messages: { files?: string }[] };
+    expect(parsed.messages[0]?.files).toBe('F1:image/png');
+  });
+
+  test('get_file downloads a supported image and returns an image content block', async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        new Response(new Uint8Array([1, 2, 3]), {
+          status: 200,
+          headers: { 'content-type': 'image/png' },
+        }),
+      )) as unknown as typeof fetch;
+    try {
+      const result = await ctx.client.callTool({
+        name: 'get_file',
+        arguments: { file_id: 'F1' },
+      });
+      expect(result.isError).toBeFalsy();
+      const content = result.content as { type: string; data?: string; mimeType?: string }[];
+      const image = content.find((c) => c.type === 'image');
+      expect(image?.mimeType).toBe('image/png');
+      // 3 raw bytes → base64 of [1,2,3].
+      expect(image?.data).toBe(Buffer.from([1, 2, 3]).toString('base64'));
+      expect(ctx.calls.at(-1)?.method).toBe('files.info');
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  test('get_file returns metadata only when the file exceeds max_bytes', async () => {
+    const result = await ctx.client.callTool({
+      name: 'get_file',
+      arguments: { file_id: 'F1', max_bytes: 1, format: 'json' },
+    });
+    const parsed = JSON.parse(textOf(result)) as { download_url: string; note: string };
+    expect(parsed.download_url).toContain('dl=1');
+    expect(parsed.note).toMatch(/max_bytes/);
   });
 
   test('search_messages errors clearly without a user token', async () => {

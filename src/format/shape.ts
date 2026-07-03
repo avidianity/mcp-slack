@@ -57,6 +57,7 @@ interface RawMessage {
   thread_ts?: string;
   reply_count?: number;
   reactions?: RawReaction[];
+  files?: RawFile[];
   edited?: { user?: string; ts?: string };
 }
 
@@ -68,6 +69,7 @@ export interface ShapedMessage {
   thread_ts: string | undefined;
   reply_count: number | undefined;
   reactions: string | undefined;
+  files: string | undefined;
   edited: boolean;
 }
 
@@ -79,6 +81,18 @@ function flattenReactions(reactions: RawReaction[] | undefined): string | undefi
   return reactions.map((r) => `${r.name ?? '?'}:${r.count ?? 0}`).join(' ');
 }
 
+/**
+ * Flatten attached files to a compact `id:mimetype` list for a single column,
+ * keeping the message row tabular. The id feeds `get_file`, and the mimetype
+ * lets the agent tell images apart from other attachments without a round-trip.
+ */
+function flattenFiles(files: RawFile[] | undefined): string | undefined {
+  if (files === undefined || files.length === 0) {
+    return undefined;
+  }
+  return files.map((f) => `${f.id ?? '?'}:${f.mimetype ?? '?'}`).join(' ');
+}
+
 export function shapeMessage(message: RawMessage): ShapedMessage {
   return {
     ts: message.ts,
@@ -88,6 +102,7 @@ export function shapeMessage(message: RawMessage): ShapedMessage {
     thread_ts: message.thread_ts,
     reply_count: message.reply_count,
     reactions: flattenReactions(message.reactions),
+    files: flattenFiles(message.files),
     edited: message.edited !== undefined,
   };
 }

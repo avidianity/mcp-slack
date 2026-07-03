@@ -35,7 +35,7 @@ function shapeBookmark(bookmark: RawBookmark): Record<string, unknown> {
 
 export function registerBookmarkTools(server: McpServer, deps: ToolDeps): void {
   registerTool(server, deps, {
-    name: 'slack_add_bookmark',
+    name: 'add_bookmark',
     title: 'Add a bookmark',
     description: 'Add a bookmark to a channel.',
     inputSchema: {
@@ -60,7 +60,7 @@ export function registerBookmarkTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_remove_bookmark',
+    name: 'remove_bookmark',
     title: 'Remove a bookmark',
     description: 'Remove a bookmark from a channel.',
     inputSchema: {
@@ -76,7 +76,7 @@ export function registerBookmarkTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_list_bookmarks',
+    name: 'list_bookmarks',
     title: 'List bookmarks',
     description: 'List all bookmarks in a channel.',
     inputSchema: { channel_id: channelId },

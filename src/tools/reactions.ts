@@ -13,7 +13,7 @@ interface ReactionsGetResult {
 
 export function registerReactionTools(server: McpServer, deps: ToolDeps): void {
   registerTool(server, deps, {
-    name: 'slack_add_reaction',
+    name: 'add_reaction',
     title: 'Add a reaction',
     description: 'Add an emoji reaction to a message.',
     inputSchema: { channel, timestamp, name },
@@ -26,7 +26,7 @@ export function registerReactionTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_remove_reaction',
+    name: 'remove_reaction',
     title: 'Remove a reaction',
     description: 'Remove an emoji reaction from a message.',
     inputSchema: { channel, timestamp, name },
@@ -39,7 +39,7 @@ export function registerReactionTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_get_reactions',
+    name: 'get_reactions',
     title: 'Get reactions',
     description: 'Get all reactions on a message.',
     inputSchema: {

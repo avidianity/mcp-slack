@@ -32,7 +32,7 @@ interface RecordedCall {
 }
 
 function cannedFor(method: string, args: Record<string, unknown>): unknown {
-  // conversations.info drives the allowlist path of slack_list_channels; echo
+  // conversations.info drives the allowlist path of list_channels; echo
   // the requested id back as a proper channel object. 'CBAD' simulates a channel
   // the token cannot see, so the allowlist path must tolerate a failed lookup.
   if (method === 'conversations.info') {
@@ -156,7 +156,7 @@ describe('tool behavior', () => {
 
   test('post_message maps args to chat.postMessage', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_post_message',
+      name: 'post_message',
       arguments: { channel: 'C1', text: 'hi there' },
     });
     expect(result.isError).toBeFalsy();
@@ -168,7 +168,7 @@ describe('tool behavior', () => {
 
   test('respects the json format override', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_post_message',
+      name: 'post_message',
       arguments: { channel: 'C1', text: 'hi', format: 'json' },
     });
     expect(JSON.parse(textOf(result))).toMatchObject({ ts: '111.222' });
@@ -176,7 +176,7 @@ describe('tool behavior', () => {
 
   test('update_message uses the user-preferred policy', async () => {
     await ctx.client.callTool({
-      name: 'slack_update_message',
+      name: 'update_message',
       arguments: { channel: 'C1', ts: '111.222', text: 'edited' },
     });
     const call = ctx.calls.at(-1);
@@ -189,7 +189,7 @@ describe('tool behavior', () => {
       loadConfig({ SLACK_BOT_TOKEN: 'xoxb-1', SLACK_TEAM_ID: 'T1', SLACK_CHANNEL_IDS: 'C1,C2' }),
     );
     const result = await scoped.client.callTool({
-      name: 'slack_list_channels',
+      name: 'list_channels',
       arguments: { format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
@@ -204,7 +204,7 @@ describe('tool behavior', () => {
       loadConfig({ SLACK_BOT_TOKEN: 'xoxb-1', SLACK_TEAM_ID: 'T1', SLACK_CHANNEL_IDS: 'C1' }),
     );
     const blocked = await scoped.client.callTool({
-      name: 'slack_post_message',
+      name: 'post_message',
       arguments: { channel: 'C2', text: 'nope' },
     });
     expect(blocked.isError).toBe(true);
@@ -213,7 +213,7 @@ describe('tool behavior', () => {
     expect(scoped.calls.some((c) => c.method === 'chat.postMessage')).toBe(false);
 
     const allowed = await scoped.client.callTool({
-      name: 'slack_post_message',
+      name: 'post_message',
       arguments: { channel: 'C1', text: 'ok' },
     });
     expect(allowed.isError).toBeFalsy();
@@ -225,7 +225,7 @@ describe('tool behavior', () => {
       loadConfig({ SLACK_BOT_TOKEN: 'xoxb-1', SLACK_TEAM_ID: 'T1', SLACK_CHANNEL_IDS: 'C1,CBAD' }),
     );
     const result = await scoped.client.callTool({
-      name: 'slack_list_channels',
+      name: 'list_channels',
       arguments: { format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
@@ -239,7 +239,7 @@ describe('tool behavior', () => {
       loadConfig({ SLACK_BOT_TOKEN: 'xoxb-1', SLACK_TEAM_ID: 'T1', SLACK_CHANNEL_IDS: 'C1' }),
     );
     const result = await scoped.client.callTool({
-      name: 'slack_search_messages',
+      name: 'search_messages',
       arguments: { query: 'x', format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { matches: { channel_id: string }[] };
@@ -252,7 +252,7 @@ describe('tool behavior', () => {
       loadConfig({ SLACK_BOT_TOKEN: 'xoxb-1', SLACK_TEAM_ID: 'T1', SLACK_CHANNEL_IDS: 'C1' }),
     );
     const result = await scoped.client.callTool({
-      name: 'slack_list_scheduled_messages',
+      name: 'list_scheduled_messages',
       arguments: { format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { scheduled_messages: { id: string }[] };
@@ -262,7 +262,7 @@ describe('tool behavior', () => {
 
   test('search_channels fuzzy-matches and ranks channels', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_search_channels',
+      name: 'search_channels',
       arguments: { query: 'general', include_non_member: true, format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as {
@@ -277,7 +277,7 @@ describe('tool behavior', () => {
 
   test('search_channels excludes non-member channels by default', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_search_channels',
+      name: 'search_channels',
       arguments: { query: 'random', format: 'json' }, // "random" (C2) is a non-member channel
     });
     const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
@@ -289,7 +289,7 @@ describe('tool behavior', () => {
       loadConfig({ SLACK_BOT_TOKEN: 'xoxb-1', SLACK_TEAM_ID: 'T1', SLACK_CHANNEL_IDS: 'C1' }),
     );
     const result = await scoped.client.callTool({
-      name: 'slack_search_channels',
+      name: 'search_channels',
       arguments: { query: 'general', format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
@@ -301,7 +301,7 @@ describe('tool behavior', () => {
 
   test('list_channels returns only member channels by default', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_list_channels',
+      name: 'list_channels',
       arguments: { format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
@@ -310,7 +310,7 @@ describe('tool behavior', () => {
 
   test('list_channels includes non-member channels when asked', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_list_channels',
+      name: 'list_channels',
       arguments: { include_non_member: true, format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { channels: { id: string }[] };
@@ -319,7 +319,7 @@ describe('tool behavior', () => {
 
   test('get_users hides deactivated users by default', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_get_users',
+      name: 'get_users',
       arguments: { format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { users: { id: string }[] };
@@ -328,7 +328,7 @@ describe('tool behavior', () => {
 
   test('get_users includes deactivated users when asked', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_get_users',
+      name: 'get_users',
       arguments: { include_deleted: true, format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { users: { id: string }[] };
@@ -337,7 +337,7 @@ describe('tool behavior', () => {
 
   test('get_channel_history filters to a single sender when user is set', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_get_channel_history',
+      name: 'get_channel_history',
       arguments: { channel: 'C1', user: 'U1', format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { messages: { user: string }[] };
@@ -346,7 +346,7 @@ describe('tool behavior', () => {
 
   test('get_channel_history returns all same-page matches even beyond limit', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_get_channel_history',
+      name: 'get_channel_history',
       arguments: { channel: 'C1', user: 'U1', limit: 1, format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as {
@@ -362,7 +362,7 @@ describe('tool behavior', () => {
 
   test('search_messages folds channel and user into in:/from: operators', async () => {
     await ctx.client.callTool({
-      name: 'slack_search_messages',
+      name: 'search_messages',
       arguments: { query: 'checkout', channel: 'C0123456789', user: 'U04KPEGV0RW', format: 'json' },
     });
     const call = ctx.calls.at(-1);
@@ -375,7 +375,7 @@ describe('tool behavior', () => {
 
   test('search_messages treats non-ID channel/user as names', async () => {
     await ctx.client.callTool({
-      name: 'slack_search_messages',
+      name: 'search_messages',
       arguments: { query: 'x', channel: 'ge-daily-dev', user: 'me', format: 'json' },
     });
     const query = String(ctx.calls.at(-1)?.args['query']);
@@ -385,7 +385,7 @@ describe('tool behavior', () => {
 
   test('search_messages rejects a channel/user value containing spaces', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_search_messages',
+      name: 'search_messages',
       arguments: { query: 'x', user: 'John Michael', format: 'json' },
     });
     expect(result.isError).toBe(true);
@@ -396,7 +396,7 @@ describe('tool behavior', () => {
 
   test('search_channels rejects a one-character query', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_search_channels',
+      name: 'search_channels',
       arguments: { query: 'a', format: 'json' },
     });
     expect(result.isError).toBe(true);
@@ -404,7 +404,7 @@ describe('tool behavior', () => {
 
   test('search_users fuzzy-matches and hides deactivated users by default', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_search_users',
+      name: 'search_users',
       arguments: { query: 'lovelace', format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { users: { id: string }[]; scanned: number };
@@ -415,7 +415,7 @@ describe('tool behavior', () => {
 
   test('search_users can include deactivated users', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_search_users',
+      name: 'search_users',
       arguments: { query: 'stone', include_deleted: true, format: 'json' },
     });
     const parsed = JSON.parse(textOf(result)) as { users: { id: string }[] };
@@ -424,7 +424,7 @@ describe('tool behavior', () => {
 
   test('upload_file rejects when both content and file_path are given', async () => {
     const result = await ctx.client.callTool({
-      name: 'slack_upload_file',
+      name: 'upload_file',
       arguments: { filename: 'a.txt', content: 'hi', file_path: '/tmp/a.txt' },
     });
     expect(result.isError).toBe(true);
@@ -440,7 +440,7 @@ describe('tool behavior', () => {
     const client = new Client({ name: 'test', version: '0' });
     await Promise.all([server.connect(serverT), client.connect(clientT)]);
     const result = await client.callTool({
-      name: 'slack_search_messages',
+      name: 'search_messages',
       arguments: { query: 'hello' },
     });
     expect(result.isError).toBe(true);

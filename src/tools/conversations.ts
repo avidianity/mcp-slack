@@ -49,7 +49,7 @@ function isMember(channel: ShapedChannel): boolean {
 
 export function registerConversationTools(server: McpServer, deps: ToolDeps): void {
   registerTool(server, deps, {
-    name: 'slack_list_channels',
+    name: 'list_channels',
     title: 'List channels',
     description:
       'List channels in the workspace. By default only channels the token identity has joined ' +
@@ -114,12 +114,12 @@ export function registerConversationTools(server: McpServer, deps: ToolDeps): vo
   });
 
   registerTool(server, deps, {
-    name: 'slack_search_channels',
+    name: 'search_channels',
     title: 'Search channels',
     description:
       'Find channels by fuzzy-matching a query against channel name, topic, and purpose. ' +
       'The server paginates and filters internally, so a single call replaces walking every ' +
-      'page of slack_list_channels. Respects the SLACK_CHANNEL_IDS allowlist. Results are ' +
+      'page of list_channels. Respects the SLACK_CHANNEL_IDS allowlist. Results are ' +
       'ranked best-match first; `truncated` is true if the scan cap was hit before the ' +
       'workspace was exhausted.',
     inputSchema: {
@@ -194,7 +194,7 @@ export function registerConversationTools(server: McpServer, deps: ToolDeps): vo
   });
 
   registerTool(server, deps, {
-    name: 'slack_get_channel_history',
+    name: 'get_channel_history',
     title: 'Get channel history',
     description:
       'Retrieve recent messages from a channel. Set `user` to return only messages from a ' +
@@ -276,7 +276,7 @@ export function registerConversationTools(server: McpServer, deps: ToolDeps): vo
   });
 
   registerTool(server, deps, {
-    name: 'slack_get_thread_replies',
+    name: 'get_thread_replies',
     title: 'Get thread replies',
     description: 'Fetch all replies in a message thread.',
     inputSchema: {
@@ -303,7 +303,7 @@ export function registerConversationTools(server: McpServer, deps: ToolDeps): vo
   });
 
   registerTool(server, deps, {
-    name: 'slack_get_channel_info',
+    name: 'get_channel_info',
     title: 'Get channel info',
     description: 'Get metadata about a single channel.',
     inputSchema: { channel },
@@ -316,7 +316,7 @@ export function registerConversationTools(server: McpServer, deps: ToolDeps): vo
   });
 
   registerTool(server, deps, {
-    name: 'slack_get_channel_members',
+    name: 'get_channel_members',
     title: 'Get channel members',
     description: 'List the user IDs that are members of a channel.',
     inputSchema: {
@@ -340,7 +340,7 @@ export function registerConversationTools(server: McpServer, deps: ToolDeps): vo
   });
 
   registerTool(server, deps, {
-    name: 'slack_join_channel',
+    name: 'join_channel',
     title: 'Join a channel',
     description: 'Join a public channel (as the token identity).',
     inputSchema: { channel },
@@ -356,7 +356,7 @@ export function registerConversationTools(server: McpServer, deps: ToolDeps): vo
   });
 
   registerTool(server, deps, {
-    name: 'slack_mark_read',
+    name: 'mark_read',
     title: 'Mark channel read',
     description: 'Move the read cursor in a channel to a message timestamp.',
     inputSchema: {

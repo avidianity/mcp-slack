@@ -28,7 +28,7 @@ const scopeToken = (field: string) =>
       (v) => !/\s/.test(v.trim()),
       `${field} cannot contain spaces: Slack search operators take no quoted or multi-word ` +
         `values. Pass an ID (e.g. U0123456789 / C0123456789) or a single-word handle, or ` +
-        `resolve the name first with slack_search_users / slack_search_channels.`,
+        `resolve the name first with search_users / search_channels.`,
     );
 
 function buildQuery(query: string, channel: string | undefined, user: string | undefined): string {
@@ -61,7 +61,7 @@ interface SearchResult {
 
 export function registerSearchTools(server: McpServer, deps: ToolDeps): void {
   registerTool(server, deps, {
-    name: 'slack_search_messages',
+    name: 'search_messages',
     title: 'Search messages',
     description:
       'Search messages across the workspace. Requires a user token (SLACK_USER_TOKEN); ' +

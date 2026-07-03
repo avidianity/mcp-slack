@@ -12,7 +12,7 @@ interface UploadResult {
 
 export function registerFileTools(server: McpServer, deps: ToolDeps): void {
   registerTool(server, deps, {
-    name: 'slack_upload_file',
+    name: 'upload_file',
     title: 'Upload a file',
     description:
       'Upload a file to Slack via the modern upload flow (filesUploadV2). Provide inline ' +

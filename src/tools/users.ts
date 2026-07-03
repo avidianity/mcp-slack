@@ -20,7 +20,7 @@ interface UserInfoResult {
 
 export function registerUserTools(server: McpServer, deps: ToolDeps): void {
   registerTool(server, deps, {
-    name: 'slack_get_users',
+    name: 'get_users',
     title: 'List users',
     description:
       'List workspace users with basic profile information. Deactivated (deleted) users are ' +
@@ -53,12 +53,12 @@ export function registerUserTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_search_users',
+    name: 'search_users',
     title: 'Search users',
     description:
       'Find users by fuzzy-matching a query against username, real name, display name, and ' +
       'email. The server paginates users.list internally, so a single call replaces walking ' +
-      'every page of slack_get_users. Results are ranked best-match first; `truncated` is true ' +
+      'every page of get_users. Results are ranked best-match first; `truncated` is true ' +
       'if the scan cap was hit before the directory was exhausted.',
     inputSchema: {
       query: z
@@ -105,7 +105,7 @@ export function registerUserTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_get_user_profile',
+    name: 'get_user_profile',
     title: 'Get user profile',
     description: 'Get detailed profile information for a single user.',
     inputSchema: {

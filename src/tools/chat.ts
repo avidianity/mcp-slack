@@ -41,7 +41,7 @@ interface ScheduledListResult {
 
 export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   registerTool(server, deps, {
-    name: 'slack_post_message',
+    name: 'post_message',
     title: 'Post a message',
     description: 'Post a new message to a Slack channel.',
     inputSchema: {
@@ -64,7 +64,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_reply_to_thread',
+    name: 'reply_to_thread',
     title: 'Reply to a thread',
     description: 'Reply to an existing thread in a channel.',
     inputSchema: {
@@ -87,7 +87,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_update_message',
+    name: 'update_message',
     title: 'Update a message',
     description:
       'Edit an existing message. Uses the user token when available (to edit your own ' +
@@ -112,7 +112,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_delete_message',
+    name: 'delete_message',
     title: 'Delete a message',
     description:
       'Delete a message. Uses the user token when available (to delete your own messages), ' +
@@ -130,7 +130,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_post_ephemeral',
+    name: 'post_ephemeral',
     title: 'Post an ephemeral message',
     description: 'Post a message visible only to a single user in a channel.',
     inputSchema: {
@@ -155,7 +155,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_schedule_message',
+    name: 'schedule_message',
     title: 'Schedule a message',
     description: 'Schedule a message to be sent to a channel at a future time.',
     inputSchema: {
@@ -184,7 +184,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_list_scheduled_messages',
+    name: 'list_scheduled_messages',
     title: 'List scheduled messages',
     description: 'List messages scheduled for future delivery.',
     inputSchema: {
@@ -217,12 +217,12 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_delete_scheduled_message',
+    name: 'delete_scheduled_message',
     title: 'Delete a scheduled message',
     description: 'Cancel a previously scheduled message.',
     inputSchema: {
       channel,
-      scheduled_message_id: z.string().describe('ID from slack_schedule_message.'),
+      scheduled_message_id: z.string().describe('ID from schedule_message.'),
     },
     handler: async (args, ctx) => {
       const res = await ctx.slack.call<{ ok?: boolean }>('bot-preferred', (c) =>
@@ -236,7 +236,7 @@ export function registerChatTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_get_permalink',
+    name: 'get_permalink',
     title: 'Get message permalink',
     description: 'Get a permalink URL for a specific message.',
     inputSchema: {

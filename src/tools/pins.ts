@@ -18,7 +18,7 @@ interface PinsListResult {
 
 export function registerPinTools(server: McpServer, deps: ToolDeps): void {
   registerTool(server, deps, {
-    name: 'slack_add_pin',
+    name: 'add_pin',
     title: 'Pin a message',
     description: 'Pin a message to a channel.',
     inputSchema: { channel, timestamp },
@@ -31,7 +31,7 @@ export function registerPinTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_remove_pin',
+    name: 'remove_pin',
     title: 'Unpin a message',
     description: 'Remove a pinned message from a channel.',
     inputSchema: { channel, timestamp },
@@ -44,7 +44,7 @@ export function registerPinTools(server: McpServer, deps: ToolDeps): void {
   });
 
   registerTool(server, deps, {
-    name: 'slack_list_pins',
+    name: 'list_pins',
     title: 'List pinned items',
     description: 'List all pinned items in a channel.',
     inputSchema: { channel },

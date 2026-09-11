@@ -12,3 +12,6 @@ coverage
 
 # Local tooling state
 .serena/
+
+# Build cache
+tsconfig.tsbuildinfo

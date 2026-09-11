@@ -69,3 +69,81 @@ describe('error normalization', () => {
     await expect(promise).rejects.toBeInstanceOf(SlackAuthError);
   });
 });
+
+describe('identity fallback', () => {
+  function missingScope(needed: string, provided: string): unknown {
+    return { data: { error: 'missing_scope', needed, provided } };
+  }
+
+  test('falls back to the user token when the bot token lacks the scope', async () => {
+    const client = withUser();
+    const seen: string[] = [];
+    const result = await client.call<{ ok: boolean }>('bot-preferred', (c) => {
+      const token = (c as unknown as { token: string }).token;
+      seen.push(token);
+      if (token.startsWith('xoxb-')) {
+        return Promise.reject(missingScope('channels:history', 'chat:write'));
+      }
+      return Promise.resolve({ ok: true });
+    });
+    expect(result.ok).toBe(true);
+    expect(seen).toEqual(['xoxb-1', 'xoxp-1']);
+  });
+
+  test('does not retry an error that is not about the identity', async () => {
+    const client = withUser();
+    let calls = 0;
+    const promise = client.call('bot-preferred', () => {
+      calls++;
+      return Promise.reject({ data: { error: 'invalid_ts_latest' } });
+    });
+    await expect(promise).rejects.toThrow(/invalid_ts_latest/);
+    expect(calls).toBe(1);
+  });
+
+  test('does not retry a rate limit against the other token', async () => {
+    const client = withUser();
+    let calls = 0;
+    const promise = client.call('bot-preferred', () => {
+      calls++;
+      return Promise.reject({ code: ErrorCode.RateLimitedError, retryAfter: 3 });
+    });
+    await expect(promise).rejects.toThrow(/rate limit/);
+    expect(calls).toBe(1);
+  });
+
+  test('reports both identities when the fallback fails too', async () => {
+    const client = withUser();
+    const promise = client.call('bot-preferred', (c) =>
+      Promise.reject(
+        (c as unknown as { token: string }).token.startsWith('xoxb-')
+          ? missingScope('channels:history', 'chat:write')
+          : { data: { error: 'not_in_channel' } },
+      ),
+    );
+    await expect(promise).rejects.toThrow(/missing_scope/);
+    await expect(promise).rejects.toThrow(/\[bot token\]/);
+    await expect(promise).rejects.toThrow(/user token, which also failed: .*not_in_channel/);
+  });
+
+  test('user-required never falls back to the bot token', async () => {
+    const client = withUser();
+    let calls = 0;
+    const promise = client.call('user-required', () => {
+      calls++;
+      return Promise.reject(missingScope('search:read', ''));
+    });
+    await expect(promise).rejects.toThrow(/missing_scope/);
+    expect(calls).toBe(1);
+  });
+
+  test('surfaces the needed and provided scopes with a fix hint', async () => {
+    const client = botOnly();
+    const promise = client.call('bot-preferred', () =>
+      Promise.reject(missingScope('channels:history', 'chat:write,channels:read')),
+    );
+    await expect(promise).rejects.toThrow(/needed: channels:history/);
+    await expect(promise).rejects.toThrow(/provided: chat:write,channels:read/);
+    await expect(promise).rejects.toThrow(/reinstall/);
+  });
+});

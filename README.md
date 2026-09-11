@@ -69,6 +69,28 @@ chat:write  search:read
 
 You need **at least one** of the two tokens. The user token unlocks the user-scoped tools.
 
+### Token fallback
+
+Each tool has a preferred identity (bot or user), but the preference is not a hard binding.
+When the preferred token is refused for a reason that belongs to the token rather than the
+request — `missing_scope`, `not_in_channel`, `channel_not_found`, a revoked or inactive
+token — the call is retried once with the other configured token.
+So a bot that was never granted `channels:history`, or was never invited to a private
+channel, still reads it when a user token that can is configured.
+Retrying is safe: Slack rejects these before the call does any work, so nothing can happen
+twice.
+
+Rate limits, bad arguments, and every other error are returned as-is, never retried against
+the other token.
+Only `search_messages` is user-only (Slack has no bot equivalent), so it never falls back.
+When both identities fail, the error names both and reports the scopes Slack asked for:
+
+```
+Slack API error: missing_scope (needed: channels:history; provided: chat:write) Add the
+missing scope to the Slack app and reinstall it, or configure a token that has it.
+[bot token] Retried with the user token, which also failed: Slack API error: not_in_channel
+```
+
 ## Configuration
 
 | Variable                    | Required        | Description                                                           |
@@ -217,6 +239,9 @@ Sensible defaults keep results focused:
 | `get_channel_members` | `conversations.members`                          |
 | `join_channel`        | `conversations.join`                             |
 | `mark_read`           | `conversations.mark`                             |
+
+Conversation tools prefer the bot token and fall back to the user token when the bot
+cannot see the channel — see [Token fallback](#token-fallback).
 
 History and thread messages carry a compact `files` column (`id:mimetype` per
 attachment); pass an id to `get_file` to fetch the bytes.

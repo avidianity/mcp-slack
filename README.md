@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/avidianity-mcp-slack-badge.png)](https://mseep.ai/app/avidianity-mcp-slack)
+
 # @avidian/mcp-slack
 
 [![Release](https://github.com/avidianity/mcp-slack/actions/workflows/release.yml/badge.svg)](https://github.com/avidianity/mcp-slack/actions/workflows/release.yml)

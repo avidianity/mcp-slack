@@ -56,7 +56,7 @@
     "start": "bun run src/index.ts",
     "build": "bun run build:cli && bun run build:lib && bun run build:types",
     "build:cli": "bun build src/index.ts --outdir dist --target node",
-    "build:lib": "bun build src/lib.ts --outfile dist/lib.js --target node --packages external && bun build src/lib.ts --outfile dist/lib.bun.js --target bun --packages external && bun build src/lib.ts --outfile dist/lib.cjs --target node --format cjs --packages external",
+    "build:lib": "bun run scripts/build_library.ts",
     "build:types": "dts-bundle-generator -o dist/lib.d.ts --project tsconfig.json --no-check --export-referenced-types false src/lib.ts && cp dist/lib.d.ts dist/lib.d.cts",
     "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit",
